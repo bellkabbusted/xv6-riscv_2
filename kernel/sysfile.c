@@ -528,3 +528,46 @@ sys_pipe(void)
   }
   return 0;
 }
+uint64
+sys_mutex(void)
+{
+  struct file *f;
+  int fd;
+
+  if (mutexalloc(&f) < 0)
+    return -1;
+  if ((fd = fdalloc(f)) < 0) {
+    fileclose(f);
+    return -1;
+  }
+  return fd;
+}
+
+uint64
+sys_mutex_lock(void)
+{
+  struct file *f;
+
+  if (argfd(0, 0, &f) < 0 || f->type != FD_MUTEX)
+    return -1;
+  if (holdingsleep(f->mutex))
+    return -1;
+  printk("[mutex] pid=%d lock %p (wait)\n", myproc()->pid, f->mutex);
+  acquiresleep(f->mutex);
+  printk("[mutex] pid=%d lock %p (acquired)\n", myproc()->pid, f->mutex);
+  return 0;
+}
+
+uint64
+sys_mutex_unlock(void)
+{
+  struct file *f;
+
+  if (argfd(0, 0, &f) < 0 || f->type != FD_MUTEX)
+    return -1;
+  if (!holdingsleep(f->mutex))
+    return -1;
+  printk("[mutex] pid=%d unlock %p\n", myproc()->pid, f->mutex);
+  releasesleep(f->mutex);
+  return 0;
+}
